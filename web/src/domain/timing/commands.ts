@@ -57,7 +57,7 @@ export function splitCue(cueIndex: number, splitMs: number): CueCommand {
 
       const newIndex = Math.max(...cues.map((c) => c.index), 0) + 1
       const first: Cue = { ...cue, endMs: splitMs }
-      const second: Cue = { index: newIndex, startMs: splitMs, endMs: cue.endMs, text: '' }
+      const second: Cue = { index: newIndex, startMs: splitMs, endMs: cue.endMs, text: '', lane: cue.lane ?? 1 }
       return [...cues.slice(0, idx), first, second, ...cues.slice(idx + 1)]
     },
   }
@@ -66,6 +66,12 @@ export function splitCue(cueIndex: number, splitMs: number): CueCommand {
 export function editCueText(cueIndex: number, text: string): CueCommand {
   return {
     apply: (cues) => mapCue(cues, cueIndex, (cue) => ({ ...cue, text })),
+  }
+}
+
+export function setCueLane(cueIndex: number, lane: 1 | 2): CueCommand {
+  return {
+    apply: (cues) => mapCue(cues, cueIndex, (cue) => ({ ...cue, lane })),
   }
 }
 
@@ -85,7 +91,7 @@ export function insertCue(startMs: number, endMs: number): CueCommand {
   return {
     apply: (cues) => {
       const newIndex = Math.max(...cues.map((c) => c.index), 0) + 1
-      const newCue: Cue = { index: newIndex, startMs, endMs, text: '' }
+      const newCue: Cue = { index: newIndex, startMs, endMs, text: '', lane: 1 }
       // Insert in sorted position by startMs
       const idx = cues.findIndex((c) => c.startMs > startMs)
       if (idx === -1) return [...cues, newCue]

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import type { Cue } from '../../domain/srt/srt'
 import { applySnapping } from '../../domain/timing/snapping'
 
@@ -14,13 +14,18 @@ type Props = {
   onRippleMove: (fromIndex: number, deltaMs: number) => void
   onResizeStart: (index: number, nextStartMs: number) => void
   onResizeEnd: (index: number, nextEndMs: number) => void
+  onMoveCueLane: (index: number, lane: 1 | 2) => void
   onSeek: (ms: number) => void
   onZoom: (delta: number) => void
 }
 
 const PX_PER_SEC_BASE = 80
 const RULER_HEIGHT = 28
-const BLOCK_TOP = RULER_HEIGHT + 6
+const LANE_HEIGHT = 56
+const LANE_GAP = 10
+const LANES_TOP = RULER_HEIGHT + 10
+const BLOCK_TOP_LANE_1 = LANES_TOP
+const BLOCK_TOP_LANE_2 = LANES_TOP + LANE_HEIGHT + LANE_GAP
 
 type DragMode = 'move' | 'resize-start' | 'resize-end'
 
@@ -53,21 +58,35 @@ export function Timeline({
   onRippleMove,
   onResizeStart,
   onResizeEnd,
+  onMoveCueLane,
   onSeek,
   onZoom,
 }: Props) {
   const pxPerMs = (PX_PER_SEC_BASE * zoom) / 1000
   const widthPx = Math.max(800, durationMs * pxPerMs)
-  const totalHeight = BLOCK_TOP + 60
+  const totalHeight = BLOCK_TOP_LANE_2 + LANE_HEIGHT + 8
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const lastManualScrollAtRef = useRef(0)
+  const [dragPreview, setDragPreview] = useState<{
+    cueIndex: number
+    mode: DragMode
+    deltaMs: number
+    lane: 1 | 2
+  } | null>(null)
 
   const dragRef = useRef<{
     cueIndex: number
     mode: DragMode
     startClientX: number
+    startClientY: number
+    lastClientY: number
     origStartMs: number
     origEndMs: number
+    origLane: 1 | 2
     altKey: boolean
+    timelineTop: number
+    pendingDeltaMs: number
+    pendingLane: 1 | 2
   } | null>(null)
 
   const beginDrag = (
@@ -83,14 +102,21 @@ export function Timeline({
       cueIndex: cue.index,
       mode,
       startClientX: e.clientX,
+      startClientY: e.clientY,
+      lastClientY: e.clientY,
       origStartMs: cue.startMs,
       origEndMs: cue.endMs,
+      origLane: cue.lane ?? 1,
       altKey: e.altKey,
+      timelineTop: (e.currentTarget as HTMLElement).closest('[data-timeline]')?.getBoundingClientRect().top ?? 0,
+      pendingDeltaMs: 0,
+      pendingLane: cue.lane ?? 1,
     }
 
     const onMove = (ev: PointerEvent) => {
       if (!dragRef.current) return
       const d = dragRef.current
+      d.lastClientY = ev.clientY
       const deltaMs = Math.round((ev.clientX - d.startClientX) / pxPerMs)
       const thisCue = cues.find((c) => c.index === d.cueIndex)
       if (!thisCue) return
@@ -98,25 +124,44 @@ export function Timeline({
         .filter((c) => c.index !== d.cueIndex)
         .flatMap((c) => [c.startMs, c.endMs])
 
+      const laneBoundaryY = d.timelineTop + BLOCK_TOP_LANE_2 - (LANE_GAP / 2)
+      const nextLane: 1 | 2 = ev.clientY >= laneBoundaryY ? 2 : 1
+      d.pendingLane = nextLane
+
       if (d.mode === 'move') {
-        if (d.altKey) {
-          // Ripple: shift all cues from this index onward
-          onRippleMove(d.cueIndex, deltaMs)
-        } else {
-          const targetStart = applySnapping(d.origStartMs + deltaMs, edgeCandidates)
-          onMoveCue(d.cueIndex, targetStart - thisCue.startMs)
-        }
+        const targetStart = applySnapping(d.origStartMs + deltaMs, edgeCandidates)
+        d.pendingDeltaMs = targetStart - d.origStartMs
       } else if (d.mode === 'resize-start') {
         const targetStart = applySnapping(d.origStartMs + deltaMs, edgeCandidates)
-        onResizeStart(d.cueIndex, targetStart)
+        d.pendingDeltaMs = targetStart - d.origStartMs
       } else {
         const targetEnd = applySnapping(d.origEndMs + deltaMs, edgeCandidates)
-        onResizeEnd(d.cueIndex, targetEnd)
+        d.pendingDeltaMs = targetEnd - d.origEndMs
       }
+
+      setDragPreview({
+        cueIndex: d.cueIndex,
+        mode: d.mode,
+        deltaMs: d.pendingDeltaMs,
+        lane: d.pendingLane,
+      })
     }
 
     const onUp = () => {
+      const d = dragRef.current
+      if (d) {
+        if (d.mode === 'move') {
+          if (d.altKey) onRippleMove(d.cueIndex, d.pendingDeltaMs)
+          else onMoveCue(d.cueIndex, d.pendingDeltaMs)
+          if (d.pendingLane !== d.origLane) onMoveCueLane(d.cueIndex, d.pendingLane)
+        } else if (d.mode === 'resize-start') {
+          onResizeStart(d.cueIndex, d.origStartMs + d.pendingDeltaMs)
+        } else {
+          onResizeEnd(d.cueIndex, d.origEndMs + d.pendingDeltaMs)
+        }
+      }
       dragRef.current = null
+      setDragPreview(null)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
@@ -125,7 +170,7 @@ export function Timeline({
     window.addEventListener('pointerup', onUp)
   }
 
-  const handleTimelineClick = (e: ReactPointerEvent) => {
+  const handleTimelineDoubleClick = (e: ReactMouseEvent<HTMLDivElement>) => {
     const rect = (e.target as HTMLElement).closest('[data-timeline]')?.getBoundingClientRect()
     if (!rect) return
     const x = e.clientX - rect.left
@@ -161,13 +206,33 @@ export function Timeline({
     container.scrollTo({ left: nextLeft, behavior: 'smooth' })
   }, [selectedCueIndex, cues])
 
+  useEffect(() => {
+    if (!scrollRef.current) return
+    if (Date.now() - lastManualScrollAtRef.current < 900) return
+    const container = scrollRef.current
+    const viewLeft = container.scrollLeft
+    const viewRight = viewLeft + container.clientWidth
+    const padding = Math.min(120, container.clientWidth * 0.15)
+
+    const leftBound = viewLeft + padding
+    const rightBound = viewRight - padding
+    if (playheadX >= leftBound && playheadX <= rightBound) return
+
+    const nextLeft = Math.max(0, playheadX - container.clientWidth * 0.35)
+    container.scrollTo({ left: nextLeft, behavior: 'smooth' })
+  }, [playheadX])
+
   return (
     <div
       ref={scrollRef}
       style={{ overflowX: 'auto', border: '1px solid #ddd', borderRadius: 8, padding: 0 }}
+      onScroll={() => {
+        lastManualScrollAtRef.current = Date.now()
+      }}
       onWheel={(e) => {
         if (e.shiftKey) {
           e.preventDefault()
+          lastManualScrollAtRef.current = Date.now()
           onZoom(e.deltaY < 0 ? 0.1 : -0.1)
         }
       }}
@@ -175,7 +240,7 @@ export function Timeline({
       <div
         data-timeline
         style={{ width: widthPx, height: totalHeight, position: 'relative', background: '#0f172a', cursor: 'crosshair' }}
-        onPointerDown={handleTimelineClick}
+        onDoubleClick={handleTimelineDoubleClick}
       >
         {/* Time ruler */}
         <svg style={{ position: 'absolute', top: 0, left: 0, width: widthPx, height: RULER_HEIGHT, pointerEvents: 'none' }}>
@@ -191,20 +256,40 @@ export function Timeline({
 
         {/* Subtitle blocks */}
         {cues.map((cue) => {
-          const left = cue.startMs * pxPerMs
-          const width = Math.max(10, (cue.endMs - cue.startMs) * pxPerMs)
+          let startMs = cue.startMs
+          let endMs = cue.endMs
+          let lane: 1 | 2 = cue.lane ?? 1
+          if (dragPreview && dragPreview.cueIndex === cue.index) {
+            lane = dragPreview.lane
+            if (dragPreview.mode === 'move') {
+              startMs = cue.startMs + dragPreview.deltaMs
+              endMs = cue.endMs + dragPreview.deltaMs
+            } else if (dragPreview.mode === 'resize-start') {
+              startMs = cue.startMs + dragPreview.deltaMs
+            } else {
+              endMs = cue.endMs + dragPreview.deltaMs
+            }
+          }
+
+          const left = Math.max(0, startMs) * pxPerMs
+          const width = Math.max(10, (Math.max(startMs + 1, endMs) - Math.max(0, startMs)) * pxPerMs)
           const isSelected = selectedCueIndex === cue.index
           const isOverlap = overlapCueIndices.has(cue.index)
+          const top = lane === 2 ? BLOCK_TOP_LANE_2 : BLOCK_TOP_LANE_1
 
           return (
             <div
               key={cue.index}
               onClick={(e) => { e.stopPropagation(); onSelectCue(cue.index) }}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                onMoveCueLane(cue.index, lane === 1 ? 2 : 1)
+              }}
               style={{
                 position: 'absolute',
                 left,
                 width,
-                top: BLOCK_TOP,
+                top,
                 height: 50,
                 borderRadius: 6,
                 border: isSelected
@@ -230,7 +315,7 @@ export function Timeline({
                 style={{ flex: 1, padding: '4px 6px', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'grab' }}
                 onPointerDown={(e) => beginDrag(e, cue, 'move')}
               >
-                #{cue.index} {cue.text}
+                L{lane} #{cue.index} {cue.text}
               </div>
               <div
                 title="Resize end"
@@ -240,6 +325,36 @@ export function Timeline({
             </div>
           )
         })}
+
+        {/* Lane guides */}
+        <div
+          style={{
+            position: 'absolute',
+            top: BLOCK_TOP_LANE_1 - 2,
+            left: 0,
+            width: widthPx,
+            height: 1,
+            background: 'rgba(148, 163, 184, 0.35)',
+            pointerEvents: 'none',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            top: BLOCK_TOP_LANE_2 - 2,
+            left: 0,
+            width: widthPx,
+            height: 1,
+            background: 'rgba(148, 163, 184, 0.35)',
+            pointerEvents: 'none',
+          }}
+        />
+        <div style={{ position: 'absolute', top: BLOCK_TOP_LANE_1 + 2, left: 6, color: '#94a3b8', fontSize: 10, pointerEvents: 'none' }}>
+          Channel 1
+        </div>
+        <div style={{ position: 'absolute', top: BLOCK_TOP_LANE_2 + 2, left: 6, color: '#94a3b8', fontSize: 10, pointerEvents: 'none' }}>
+          Channel 2
+        </div>
 
         {/* Playhead line */}
         <div

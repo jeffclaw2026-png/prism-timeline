@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { parseSrt, serializeSrt, type Cue } from './domain/srt/srt'
-import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart, deleteCue, splitCue, editCueText, rippleMoveCues, insertCue } from './domain/timing/commands'
+import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart, deleteCue, splitCue, editCueText, rippleMoveCues, insertCue, setCueLane } from './domain/timing/commands'
 import { findOverlappingCueIndices } from './domain/timing/overlap'
 import { Timeline } from './components/timeline/Timeline'
 
@@ -150,6 +150,12 @@ function App() {
     syncFromStack()
   }
 
+  const runMoveLane = (index: number, lane: 1 | 2) => {
+    if (!stackRef.current) return
+    stackRef.current.execute(setCueLane(index, lane))
+    syncFromStack()
+  }
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const targetTag = (e.target as HTMLElement | null)?.tagName
@@ -231,6 +237,14 @@ function App() {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
         runDelete(selectedCueIndex)
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        runMoveLane(selectedCueIndex, 1)
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        runMoveLane(selectedCueIndex, 2)
       }
       if (e.key === 's' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
@@ -398,7 +412,7 @@ function App() {
               {zoom.toFixed(1)}x
             </label>
             <span style={{ marginLeft: 16, color: '#888', fontSize: 12 }}>
-              Shift+wheel = timeline zoom, Alt+drag/Alt+←→ = ripple
+              Double-click timeline = seek, Shift+wheel = timeline zoom, Alt+drag/Alt+←→ = ripple
             </span>
           </div>
 
@@ -414,6 +428,7 @@ function App() {
             onRippleMove={runRippleMove}
             onResizeStart={runResizeStart}
             onResizeEnd={runResizeEnd}
+            onMoveCueLane={runMoveLane}
             onSeek={(ms) => {
               setCurrentMs(ms)
               if (videoRef.current) videoRef.current.currentTime = ms / 1000
@@ -434,6 +449,8 @@ function App() {
               </button>
               <button onClick={() => runMoveCue(selectedCueIndex, -100)}>←100ms</button>
               <button onClick={() => runMoveCue(selectedCueIndex, 100)}>100ms→</button>
+              <button onClick={() => runMoveLane(selectedCueIndex, 1)}>Move to Ch1 (↑)</button>
+              <button onClick={() => runMoveLane(selectedCueIndex, 2)}>Move to Ch2 (↓)</button>
               <button onClick={() => runRippleMove(selectedCueIndex, -100)}>⟪←100ms ripple</button>
               <button onClick={() => runRippleMove(selectedCueIndex, 100)}>⟫100ms ripple→</button>
             </div>
@@ -472,7 +489,7 @@ function App() {
                   }}
                 >
                   <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>
-                    #{cue.index} {formatTimecode(cue.startMs)} → {formatTimecode(cue.endMs)}
+                    Ch{cue.lane ?? 1} • #{cue.index} {formatTimecode(cue.startMs)} → {formatTimecode(cue.endMs)}
                   </div>
                   {isSelected ? (
                     <textarea

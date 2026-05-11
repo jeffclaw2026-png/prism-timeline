@@ -3,6 +3,7 @@ export type Cue = {
   startMs: number
   endMs: number
   text: string
+  lane?: 1 | 2
 }
 
 export type SubtitleTrack = {
@@ -51,6 +52,7 @@ export function parseSrt(input: string): SubtitleTrack {
       startMs: parseTimecode(startRaw),
       endMs: parseTimecode(endRaw),
       text: lines.slice(2).join('\n').trim(),
+      lane: 1,
     }
   })
 

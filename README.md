@@ -1,16 +1,17 @@
 # Prism Timeline
 
-A web-based subtitle editing tool. Load a video and SRT file, edit subtitles on a visual timeline — drag, resize, split, ripple-edit — and export back to SRT.
+A web-based subtitle editing tool. Load a video and SRT file, edit subtitles on a visual timeline (2 channels), and export back to SRT.
 
 ## Features
 
-- **Timeline editing** — drag/resize subtitle blocks with snapping and collision detection
+- **Timeline editing** — smooth drag/resize subtitle blocks with snapping
+- **2-channel lanes** — move cues between Channel 1 and Channel 2 by vertical drag/drop
 - **Inline text editing** — click a cue to edit text directly
 - **Ripple edit** — Alt+drag or Alt+arrows to shift all subsequent cues together
-- **Overlap detection** — overlapping cues highlighted in red; stacked preview on video
+- **Lane-aware overlap detection** — overlaps are highlighted only within the same channel
 - **Play selection** — play only the selected cue's time range
 - **Keyboard shortcuts** — Space, arrows, Delete, S (split), Ctrl+Z/Y, Ctrl+S
-- **Auto-save** — edits persist in localStorage; Ctrl+S exports SRT file
+- **Timecode display** — cue list shows `HH:MM:SS.CS` format
 
 ## Quick Start
 
@@ -37,16 +38,17 @@ Open the app, load a video + SRT, and start editing.
 | S | Split cue at playhead |
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z | Redo |
-| Ctrl+S | Save to localStorage |
+| Ctrl+S | Save autosave snapshot to localStorage |
 | Ctrl+E | Export SRT file |
 | Ctrl+= / Ctrl+- | Zoom in / out |
-| Ctrl+scroll | Zoom on timeline |
+| Shift+scroll | Zoom on timeline |
+| Double-click timeline | Seek playhead |
+| ↑ / ↓ | Move selected cue to Ch1 / Ch2 |
 
 ## Tech Stack
 
 - React 19 + TypeScript
 - Vite
-- Zustand (state)
 - Vitest (tests)
 
 ## Project Structure

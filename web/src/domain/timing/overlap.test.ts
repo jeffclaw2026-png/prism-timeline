@@ -19,4 +19,12 @@ describe('findOverlappingCueIndices', () => {
     ]
     expect([...findOverlappingCueIndices(cues)].sort((a, b) => a - b)).toEqual([1, 2])
   })
+
+  it('does not flag overlaps across different lanes', () => {
+    const cues: Cue[] = [
+      { index: 1, startMs: 0, endMs: 1200, text: 'A', lane: 1 },
+      { index: 2, startMs: 1000, endMs: 2000, text: 'B', lane: 2 },
+    ]
+    expect([...findOverlappingCueIndices(cues)]).toEqual([])
+  })
 })
