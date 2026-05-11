@@ -16,16 +16,18 @@ function App() {
   const [exportText, setExportText] = useState('')
   const [editingText, setEditingText] = useState('')
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const cueListRef = useRef<HTMLDivElement | null>(null)
+  const cueItemRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const stackRef = useRef<CommandStack | null>(null)
   const playRangeEndRef = useRef<number | null>(null)
 
   const activeCue = useMemo(
-    () => cues.find((cue) => currentMs >= cue.startMs && currentMs <= cue.endMs),
+    () => cues.find((cue) => currentMs >= cue.startMs && currentMs < cue.endMs),
     [cues, currentMs],
   )
 
   const activeCues = useMemo(
-    () => cues.filter((cue) => currentMs >= cue.startMs && currentMs <= cue.endMs),
+    () => cues.filter((cue) => currentMs >= cue.startMs && currentMs < cue.endMs),
     [cues, currentMs],
   )
 
@@ -74,6 +76,29 @@ function App() {
     const cue = cues.find((c) => c.index === selectedCueIndex)
     setEditingText(cue?.text ?? '')
   }, [selectedCueIndex, cues])
+
+  useEffect(() => {
+    if (selectedCueIndex === null) return
+    const container = cueListRef.current
+    const item = cueItemRefs.current[selectedCueIndex]
+    if (!container || !item) return
+
+    const containerTop = container.scrollTop
+    const containerBottom = containerTop + container.clientHeight
+    const itemTop = item.offsetTop
+    const itemBottom = itemTop + item.offsetHeight
+
+    if (itemTop >= containerTop && itemBottom <= containerBottom) return
+    item.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [selectedCueIndex])
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem('prism-editor-state-v1')
+    } catch {
+      // ignore storage issues
+    }
+  }, [])
 
   const runMoveCue = (index: number, deltaMs: number) => {
     if (!stackRef.current) return
@@ -237,19 +262,39 @@ function App() {
     void v.play()
   }
 
+  const formatTimecode = (ms: number) => {
+    const safeMs = Math.max(0, Math.floor(ms))
+    const hours = Math.floor(safeMs / 3_600_000)
+    const minutes = Math.floor((safeMs % 3_600_000) / 60_000)
+    const seconds = Math.floor((safeMs % 60_000) / 1000)
+    const centiseconds = Math.floor((safeMs % 1000) / 10)
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`
+  }
+
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
-      <h1>Prism Timeline MVP</h1>
+      <h1>Prism Timeline Editor</h1>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           Video:
-          <input type="file" accept="video/*" onChange={(e) => onVideoFile(e.target.files?.[0] ?? null)} />
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(e) => onVideoFile(e.target.files?.[0] ?? null)}
+            style={{ width: 340, maxWidth: '100%', minWidth: 0 }}
+          />
         </label>
 
-        <label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           SRT:
-          <input type="file" accept=".srt,text/plain" onChange={(e) => onSrtFile(e.target.files?.[0] ?? null)} />
+          <input
+            type="file"
+            accept=".srt,text/plain"
+            onChange={(e) => onSrtFile(e.target.files?.[0] ?? null)}
+            style={{ width: 340, maxWidth: '100%', minWidth: 0 }}
+          />
         </label>
 
         <button
@@ -274,8 +319,8 @@ function App() {
 
       {error && <p style={{ color: 'crimson' }}>SRT parse error: {error}</p>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-        <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', gap: 16 }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ position: 'relative', background: '#111', borderRadius: 8, overflow: 'hidden' }}>
             {videoUrl ? (
               <video
@@ -353,7 +398,7 @@ function App() {
               {zoom.toFixed(1)}x
             </label>
             <span style={{ marginLeft: 16, color: '#888', fontSize: 12 }}>
-              Alt+drag/Alt+←→ = ripple
+              Shift+wheel = timeline zoom, Alt+drag/Alt+←→ = ripple
             </span>
           </div>
 
@@ -395,15 +440,25 @@ function App() {
           )}
         </div>
 
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h3>Cues ({cues.length}) {overlapCueIndices.size > 0 ? `• ${overlapCueIndices.size} overlap` : ''}</h3>
-          <div style={{ maxHeight: 340, overflow: 'auto', border: '1px solid #ddd', borderRadius: 8 }}>
+          <div
+            ref={cueListRef}
+            style={{ maxHeight: 340, overflow: 'auto', border: '1px solid #ddd', borderRadius: 8 }}
+          >
             {cues.map((cue) => {
               const isSelected = cue.index === selectedCueIndex
               return (
                 <div
                   key={cue.index}
-                  onClick={() => setSelectedCueIndex(cue.index)}
+                  ref={(el) => {
+                    cueItemRefs.current[cue.index] = el
+                  }}
+                  onClick={() => {
+                    setSelectedCueIndex(cue.index)
+                    setCurrentMs(cue.startMs)
+                    if (videoRef.current) videoRef.current.currentTime = cue.startMs / 1000
+                  }}
                   style={{
                     padding: 8,
                     borderBottom: '1px solid #eee',
@@ -417,7 +472,7 @@ function App() {
                   }}
                 >
                   <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>
-                    #{cue.index} {cue.startMs} → {cue.endMs}
+                    #{cue.index} {formatTimecode(cue.startMs)} → {formatTimecode(cue.endMs)}
                   </div>
                   {isSelected ? (
                     <textarea
@@ -443,15 +498,18 @@ function App() {
                         boxSizing: 'border-box' as const,
                         font: 'inherit',
                         fontSize: 13,
+                        color: '#0f172a',
                         padding: 4,
                         borderRadius: 4,
                         border: '1px solid #fbbf24',
-                        background: '#fff',
+                        background: '#ffffff',
+                        caretColor: '#0f172a',
+                        lineHeight: 1.35,
                         resize: 'vertical' as const,
                       }}
                     />
                   ) : (
-                    <div style={{ fontSize: 13 }}>{cue.text}</div>
+                    <div style={{ fontSize: 13, overflowWrap: 'anywhere' }}>{cue.text}</div>
                   )}
                 </div>
               )

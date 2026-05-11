@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Cue } from '../../domain/srt/srt'
 import { applySnapping } from '../../domain/timing/snapping'
 
@@ -59,6 +59,7 @@ export function Timeline({
   const pxPerMs = (PX_PER_SEC_BASE * zoom) / 1000
   const widthPx = Math.max(800, durationMs * pxPerMs)
   const totalHeight = BLOCK_TOP + 60
+  const scrollRef = useRef<HTMLDivElement | null>(null)
 
   const dragRef = useRef<{
     cueIndex: number
@@ -142,11 +143,30 @@ export function Timeline({
   // Playhead position
   const playheadX = currentMs * pxPerMs
 
+  useEffect(() => {
+    if (!scrollRef.current || selectedCueIndex === null) return
+    const cue = cues.find((c) => c.index === selectedCueIndex)
+    if (!cue) return
+
+    const container = scrollRef.current
+    const cueLeft = cue.startMs * pxPerMs
+    const cueRight = cue.endMs * pxPerMs
+    const currentLeft = container.scrollLeft
+    const currentRight = currentLeft + container.clientWidth
+
+    if (cueLeft >= currentLeft && cueRight <= currentRight) return
+
+    const cueCenter = (cueLeft + cueRight) / 2
+    const nextLeft = Math.max(0, cueCenter - container.clientWidth / 2)
+    container.scrollTo({ left: nextLeft, behavior: 'smooth' })
+  }, [selectedCueIndex, cues])
+
   return (
     <div
+      ref={scrollRef}
       style={{ overflowX: 'auto', border: '1px solid #ddd', borderRadius: 8, padding: 0 }}
       onWheel={(e) => {
-        if (e.ctrlKey || e.metaKey) {
+        if (e.shiftKey) {
           e.preventDefault()
           onZoom(e.deltaY < 0 ? 0.1 : -0.1)
         }
