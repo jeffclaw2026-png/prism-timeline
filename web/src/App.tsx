@@ -17,6 +17,7 @@ function App() {
   const [editingText, setEditingText] = useState('')
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const stackRef = useRef<CommandStack | null>(null)
+  const playRangeEndRef = useRef<number | null>(null)
 
   const activeCue = useMemo(
     () => cues.find((cue) => currentMs >= cue.startMs && currentMs <= cue.endMs),
@@ -190,6 +191,14 @@ function App() {
     URL.revokeObjectURL(url)
   }
 
+  const playSelection = (cue: Cue) => {
+    const v = videoRef.current
+    if (!v) return
+    v.currentTime = cue.startMs / 1000
+    playRangeEndRef.current = cue.endMs
+    void v.play()
+  }
+
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
       <h1>Prism Timeline MVP</h1>
@@ -236,7 +245,15 @@ function App() {
                 controls
                 src={videoUrl}
                 style={{ width: '100%', display: 'block' }}
-                onTimeUpdate={(e) => setCurrentMs(e.currentTarget.currentTime * 1000)}
+                onTimeUpdate={(e) => {
+                  const ms = e.currentTarget.currentTime * 1000
+                  setCurrentMs(ms)
+                  // Auto-stop when playing a range
+                  if (playRangeEndRef.current !== null && ms >= playRangeEndRef.current) {
+                    e.currentTarget.pause()
+                    playRangeEndRef.current = null
+                  }
+                }}
               />
             ) : (
               <div style={{ height: 320, display: 'grid', placeItems: 'center', color: '#aaa' }}>Load a video to start</div>
@@ -297,7 +314,16 @@ function App() {
           />
 
           {selectedCueIndex && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                onClick={() => {
+                  const cue = cues.find((c) => c.index === selectedCueIndex)
+                  if (cue) playSelection(cue)
+                }}
+                style={{ fontWeight: 'bold', background: '#16a34a', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: 4, cursor: 'pointer' }}
+              >
+                ▶ Play selection
+              </button>
               <button onClick={() => runMoveCue(selectedCueIndex, -100)}>←100ms</button>
               <button onClick={() => runMoveCue(selectedCueIndex, 100)}>100ms→</button>
               <button onClick={() => runRippleMove(selectedCueIndex, -100)}>⟪←100ms ripple</button>
