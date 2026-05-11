@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Cue } from '../srt/srt'
-import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart } from './commands'
+import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart, deleteCue, splitCue } from './commands'
 
 const cues: Cue[] = [
   { index: 1, startMs: 1000, endMs: 2000, text: 'A' },
@@ -37,5 +37,34 @@ describe('timing commands', () => {
 
     stack.execute(resizeCueEnd(1, 900))
     expect(stack.current()[0]).toMatchObject({ startMs: 1000, endMs: 1001 })
+  })
+
+  it('deletes a cue and supports undo', () => {
+    const stack = new CommandStack(cues)
+    expect(stack.current()).toHaveLength(2)
+
+    stack.execute(deleteCue(1))
+    expect(stack.current()).toHaveLength(1)
+    expect(stack.current()[0].index).toBe(2)
+
+    stack.undo()
+    expect(stack.current()).toHaveLength(2)
+    expect(stack.current()[0].index).toBe(1)
+  })
+
+  it('splits a cue at the given ms', () => {
+    const stack = new CommandStack(cues)
+    stack.execute(splitCue(1, 1500))
+
+    const result = stack.current()
+    expect(result).toHaveLength(3)
+    // First half
+    expect(result[0]).toMatchObject({ index: 1, startMs: 1000, endMs: 1500, text: 'A' })
+    // Second half (new cue)
+    expect(result[1]).toMatchObject({ startMs: 1500, endMs: 2000, text: '' })
+    expect(result[1].index).toBeGreaterThan(2)
+
+    stack.undo()
+    expect(stack.current()).toHaveLength(2)
   })
 })

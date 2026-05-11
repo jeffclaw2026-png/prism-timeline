@@ -41,6 +41,28 @@ export function resizeCueEnd(cueIndex: number, nextEndMs: number): CueCommand {
   }
 }
 
+export function deleteCue(cueIndex: number): CueCommand {
+  return {
+    apply: (cues) => cues.filter((cue) => cue.index !== cueIndex),
+  }
+}
+
+export function splitCue(cueIndex: number, splitMs: number): CueCommand {
+  return {
+    apply: (cues) => {
+      const idx = cues.findIndex((c) => c.index === cueIndex)
+      if (idx === -1) return cues
+      const cue = cues[idx]
+      if (splitMs <= cue.startMs || splitMs >= cue.endMs) return cues
+
+      const newIndex = Math.max(...cues.map((c) => c.index), 0) + 1
+      const first: Cue = { ...cue, endMs: splitMs }
+      const second: Cue = { index: newIndex, startMs: splitMs, endMs: cue.endMs, text: '' }
+      return [...cues.slice(0, idx), first, second, ...cues.slice(idx + 1)]
+    },
+  }
+}
+
 export class CommandStack {
   private history: Cue[][]
   private cursor: number

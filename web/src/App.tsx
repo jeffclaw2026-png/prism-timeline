@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { parseSrt, serializeSrt, type Cue } from './domain/srt/srt'
-import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart } from './domain/timing/commands'
+import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart, deleteCue, splitCue } from './domain/timing/commands'
 import { findOverlappingCueIndices } from './domain/timing/overlap'
 import { Timeline } from './components/timeline/Timeline'
 
@@ -54,6 +54,14 @@ function App() {
     }
   }
 
+  // Auto-save to localStorage when cues change
+  useEffect(() => {
+    if (cues.length > 0) {
+      const content = serializeSrt({ cues })
+      try { localStorage.setItem('prism-autosave', content) } catch { /* quota exceeded */ }
+    }
+  }, [cues])
+
   const runMoveCue = (index: number, deltaMs: number) => {
     if (!stackRef.current) return
     stackRef.current.execute(moveCueBy(index, deltaMs))
@@ -69,6 +77,19 @@ function App() {
   const runResizeEnd = (index: number, nextEndMs: number) => {
     if (!stackRef.current) return
     stackRef.current.execute(resizeCueEnd(index, nextEndMs))
+    syncFromStack()
+  }
+
+  const runDelete = (index: number) => {
+    if (!stackRef.current) return
+    stackRef.current.execute(deleteCue(index))
+    syncFromStack()
+    setSelectedCueIndex(null)
+  }
+
+  const runSplit = (index: number) => {
+    if (!stackRef.current) return
+    stackRef.current.execute(splitCue(index, currentMs))
     syncFromStack()
   }
 
@@ -94,6 +115,12 @@ function App() {
         return
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        downloadSrt()
+        return
+      }
+
       if (!selectedCueIndex) return
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
@@ -102,6 +129,14 @@ function App() {
       if (e.key === 'ArrowRight') {
         e.preventDefault()
         runMoveCue(selectedCueIndex, e.shiftKey ? 500 : 100)
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        runDelete(selectedCueIndex)
+      }
+      if (e.key === 's' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        runSplit(selectedCueIndex)
       }
     }
 
