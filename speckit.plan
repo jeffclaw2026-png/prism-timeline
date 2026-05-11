@@ -1,0 +1,134 @@
+# Implementation Plan
+
+**Spec**: speckit.specify
+**Generated**: 2026-05-11
+
+## Summary
+
+Build a web-based subtitle editing tool (Prism Timeline) that loads video + SRT, provides a video-editor-style timeline for drag/move/resize of subtitle segments, supports text/timing editing, keyboard shortcuts, zoom/scroll, and exports back to SRT.
+
+## Technical Context
+
+- **Language/Version**: TypeScript 5.x
+- **Runtime**: Browser (web app)
+- **Framework**: React 18 + Vite
+- **State Management**: Zustand
+- **Timeline**: Custom Canvas-based rendering
+- **Testing**: Vitest (unit) + Playwright (e2e)
+- **Target Platform**: Modern browsers (Chrome, Firefox, Edge)
+
+## Constitution Check
+
+- ✅ Timeline precision first: millisecond-level timing in engine, integer ms throughout
+- ✅ Non-destructive editing: Zustand + undo middleware for full undo/redo
+- ✅ Fast iterative workflow: keyboard-first, real-time preview
+- ✅ Interoperable I/O: strict SRT parser, standards-compliant export
+- ✅ Cross-platform: web-first, no native dependencies
+- ✅ Observable quality: parser + engine + round-trip tests
+
+## Project Structure
+
+```
+prism-timeline/
+├── src/
+│   ├── parser/               # SRT I/O
+│   │   ├── srt-parser.ts     # Parse SRT → SubtitleCue[]
+│   │   └── srt-writer.ts     # SubtitleCue[] → SRT string
+│   ├── engine/               # Core logic (framework-agnostic)
+│   │   ├── timeline-engine.ts  # Time ↔ pixel mapping, zoom levels
+│   │   ├── snapping.ts         # Snap to grid / other cues
+│   │   └── collision.ts        # Overlap detection
+│   ├── store/                # Zustand state
+│   │   ├── subtitle-store.ts   # SubtitleCue[], selection, edit ops
+│   │   └── project-store.ts    # File refs, zoom, playhead position
+│   ├── components/           # React UI
+│   │   ├── timeline/
+│   │   │   ├── Timeline.tsx          # Canvas timeline with blocks + playhead
+│   │   │   └── TimelineRuler.tsx     # Time ruler at top
+│   │   ├── editor/
+│   │   │   ├── EditorPanel.tsx       # Side panel: text + timing
+│   │   │   └── TimingField.tsx       # In/out time input with validation
+│   │   ├── player/
+│   │   │   └── VideoPlayer.tsx       # HTML5 video + sync
+│   │   ├── toolbar/
+│   │   │   └── Toolbar.tsx           # Import, export, undo/redo, zoom
+│   │   └── App.tsx                   # Layout shell
+│   ├── hooks/                # Custom React hooks
+│   │   ├── useKeyboard.ts           # Shortcut bindings
+│   │   ├── useVideoSync.ts          # Playhead ↔ video sync
+│   │   └── useTimelineZoom.ts       # Zoom + scroll
+│   ├── types.ts              # SubtitleCue, Project, etc.
+│   └── main.tsx              # Entry point
+├── tests/
+│   ├── parser.test.ts
+│   ├── engine.test.ts
+│   └── e2e/                  # Playwright
+├── index.html
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
+```
+
+## Architecture Decisions
+
+1. **Canvas timeline over DOM**: For smooth 60fps rendering with hundreds of subtitle blocks + playhead animation. DOM-based would struggle with large SRT files (1000+ cues).
+
+2. **Zustand over Redux**: Minimal boilerplate, built-in immer middleware for immutable updates, easy undo middleware. Perfect for this scale.
+
+3. **Framework-agnostic engine**: `parser/` and `engine/` have zero React imports — pure TypeScript. Testable in isolation. React components consume them via hooks.
+
+4. **Time unit: milliseconds (integer)**: All internal timing in ms as integers. No floating point. Avoids IEEE 754 drift. Convert to/from SRT's `HH:MM:SS,mmm` at I/O boundaries only.
+
+## Data Model
+
+```typescript
+interface SubtitleCue {
+  id: string;           // UUID
+  index: number;        // SRT index (1-based)
+  startMs: number;      // Start time in ms
+  endMs: number;        // End time in ms
+  text: string;         // Can contain newlines
+}
+
+interface ProjectState {
+  cues: SubtitleCue[];
+  videoSrc: string | null;
+  srtFileName: string | null;
+  selectedCueIds: Set<string>;
+  playheadMs: number;
+  zoom: number;         // px per second
+  scrollLeft: number;   // timeline scroll position
+  durationMs: number;   // total timeline duration
+}
+```
+
+## Milestones
+
+1. **M1 Foundation**: Project scaffold, SRT parser/writer, core types
+2. **M2 Engine**: Timeline engine (time ↔ pixel), snapping, collision
+3. **M3 Core UI**: Video player, timeline canvas, subtitle blocks (render only)
+4. **M4 Interaction**: Drag/resize blocks, editor panel, video sync, import/export
+5. **M5 Polish**: Keyboard shortcuts, undo/redo, zoom/scroll, overlap warnings
+6. **M6 Quality**: Unit tests, e2e tests, edge cases
+
+## Risks & Mitigations
+
+- **Risk**: Canvas drag/resize interaction is complex to implement from scratch
+  **Mitigation**: Start with simple pointer event handling; iterate toward smooth UX
+
+- **Risk**: Large SRT files (5000+ cues) may cause performance issues
+  **Mitigation**: Virtualize timeline — only render visible blocks; use requestAnimationFrame
+
+- **Risk**: Video codec compatibility across browsers
+  **Mitigation**: Document supported formats; suggest H.264 MP4 for broad compatibility
+
+## Done Criteria
+
+- Can load a video + SRT and see subtitles on timeline
+- Can drag/resize subtitle blocks with timeline updating in real time
+- Can edit text/timing in side panel with immediate timeline reflection
+- Can scrub/play video with subtitle preview synchronized
+- Can export back to SRT and re-import without data loss (round-trip)
+- Keyboard shortcuts work for nudge, split, merge, play/pause, delete
+- Undo/redo works across all edit operations
+- Unit tests pass for parser and engine

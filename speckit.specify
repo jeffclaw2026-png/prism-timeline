@@ -1,0 +1,13 @@
+# Specification
+
+## Requirements
+
+Build a subtitle editing tool that can load a video file and a separate SRT subtitle file, display subtitles on a timeline similar to video editing software, allow users to drag/move/resize subtitle segments on the timeline, edit subtitle text, adjust in/out timing, scrub playback with subtitle preview, and export the final result back to SRT format. The tool should support common desktop workflows but can be implemented as a web app first (with potential desktop wrapper later). Include usability requirements for keyboard shortcuts, zoomable timeline, snapping options, and conflict detection for overlapping subtitles.
+
+## User Stories
+
+As a subtitle editor, I want to import a video and SRT quickly so that I can start editing immediately.
+As a subtitle editor, I want to drag subtitle blocks on a timeline so that timing adjustments feel like video editing.
+As a subtitle editor, I want to edit cue text and timing fields directly so that I can make precise corrections.
+As a subtitle editor, I want keyboard shortcuts for nudge, split, merge, and play/pause so that I can work faster.
+As a subtitle editor, I want to export valid SRT files so that the output works in standard players.

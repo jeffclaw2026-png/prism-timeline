@@ -1,0 +1,61 @@
+# Tasks
+
+**Plan**: speckit.plan
+**Generated**: 2026-05-11
+**Updated**: 2026-05-11 (status sync with actual code)
+
+## M1: Foundation
+
+| ID | Task | Priority | Deps | Status |
+|----|------|----------|------|--------|
+| T001 | Scaffold Vite + React + TypeScript project, install Zustand, configure Vitest | High | None | ✅ done |
+| T002 | Define core types: `SubtitleCue`, `ProjectState`, `TimeMs` in `src/types.ts` | High | T001 | ✅ done (Cue, SubtitleTrack in srt.ts) |
+| T003 | Implement SRT parser: `parseSrt(raw: string) → SubtitleCue[]` with strict validation and malformed-file recovery | High | T002 | ✅ done |
+| T004 | Implement SRT writer: `writeSrt(cues: SubtitleCue[]) → string` with SRT-compliant formatting | High | T002 | ✅ done |
+| T005 | Set up Zustand store (`subtitle-store.ts`) — cues array, selection, basic CRUD actions | High | T002 | ⚠️ partial (CommandStack class used instead, Zustand installed but not yet used) |
+
+## M2: Engine
+
+| ID | Task | Priority | Deps | Status |
+|----|------|----------|------|--------|
+| T006 | Timeline engine: `msToPixel(ms, zoom)`, `pixelToMs(px, zoom)`, zoom constants (0.5x–8x) | High | T002 | ✅ done (pxPerMs in Timeline.tsx) |
+| T007 | Snapping: snap start/end times to grid (50ms/100ms/500ms) and to neighbor cue edges | Medium | T006 | ✅ done (snapping.ts + test) |
+| T008 | Collision detection: `findOverlaps(cues) → [SubtitleCue, SubtitleCue][]` | Medium | T002 | ✅ done (overlap.ts + test) |
+
+## M3: Core UI
+
+| ID | Task | Priority | Deps | Status |
+|----|------|----------|------|--------|
+| T009 | App layout shell: top toolbar + main area (video left, timeline bottom, editor right) with CSS Grid | High | T001 | ✅ done |
+| T010 | VideoPlayer component: HTML5 `<video>`, load from file, play/pause/seek | High | T001 | ✅ done |
+| T011 | Timeline canvas: render time ruler at top, playhead line, respond to click-to-seek | High | T006 | ⚠️ partial (blocks rendered, no time ruler yet, no playhead line) |
+| T012 | Subtitle block rendering: draw rounded rects on canvas at correct positions, color by selection state | High | T006, T005 | ✅ done (DOM-based, not canvas) |
+
+## M4: Interaction
+
+| ID | Task | Priority | Deps | Status |
+|----|------|----------|------|--------|
+| T013 | Drag subtitle blocks: pointerdown/move/up on canvas, update `startMs`/`endMs` in store, snap on release | High | T012, T007 | ✅ done |
+| T014 | Resize subtitle blocks: drag left/right edges to adjust in/out points, minimum duration enforcement (100ms) | High | T012 | ✅ done (1ms min, handles on edges) |
+| T015 | EditorPanel: show selected cue's text in textarea, start/end time in editable fields, update store on change | High | T005, T009 | ⚠️ partial (cue list with text/timing display, no inline editing) |
+| T016 | Video-timeline sync: playhead follows `video.currentTime`, click timeline seeks video, playhead animates during playback | High | T010, T011 | ⚠️ partial (video→timeline sync done, no timeline→video click seek, no playhead line) |
+| T017 | Import flow: toolbar buttons for "Open Video" + "Open SRT", file input, parse SRT, set video source | High | T003, T010 | ✅ done |
+| T018 | Export SRT: toolbar button, serialize cues to SRT, trigger download with .srt extension | High | T004 | ✅ done |
+
+## M5: Polish
+
+| ID | Task | Priority | Deps | Status |
+|----|------|----------|------|--------|
+| T019 | Keyboard shortcuts: Space=play/pause, Arrows=nudge 50ms, Shift+Arrows=nudge 500ms, Delete=remove cue, Ctrl+Z/Y=undo/redo, S=split at playhead | Medium | T013 | ⚠️ partial (Space, Ctrl+Z/Shift+Z, Arrows 100/500ms done; no Delete, no split) |
+| T020 | Undo/redo: Zustand temporal middleware, cover all mutation actions | Medium | T005 | ✅ done (CommandStack class) |
+| T021 | Zoom: Ctrl+scroll on timeline, zoom buttons in toolbar, horizontal scroll with Shift+wheel or trackpad | Medium | T011 | ⚠️ partial (slider zoom done, no Ctrl+scroll, no timeline scroll) |
+| T022 | Overlap warnings: highlight overlapping cues in red on timeline, show warning count in toolbar | Low | T008, T012 | ✅ done |
+
+## M6: Quality
+
+| ID | Task | Priority | Deps | Status |
+|----|------|----------|------|--------|
+| T023 | Parser unit tests: valid SRT, malformed SRT, empty, BOM, different newlines, edge timestamps | High | T003 | ✅ done (3 tests) |
+| T024 | Engine unit tests: time↔pixel at all zoom levels, snapping accuracy, collision detection | High | T006, T007, T008 | ✅ done (8 tests across snapping/overlap/commands) |
+| T025 | Round-trip test: import SRT → edit → export → re-import → verify data integrity | High | T003, T004, T005 | ⚠️ not yet |
+| T026 | Playwright smoke test: load sample video+SRT, verify blocks render, drag a block, export and check file | Medium | T018 | ⚠️ not yet |

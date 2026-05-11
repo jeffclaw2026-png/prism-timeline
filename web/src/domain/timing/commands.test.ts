@@ -1,0 +1,41 @@
+import { describe, expect, it } from 'vitest'
+import type { Cue } from '../srt/srt'
+import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart } from './commands'
+
+const cues: Cue[] = [
+  { index: 1, startMs: 1000, endMs: 2000, text: 'A' },
+  { index: 2, startMs: 2500, endMs: 3200, text: 'B' },
+]
+
+describe('timing commands', () => {
+  it('moves cue by delta and supports undo/redo', () => {
+    const stack = new CommandStack(cues)
+    stack.execute(moveCueBy(1, 300))
+
+    expect(stack.current()[0]).toMatchObject({ startMs: 1300, endMs: 2300 })
+
+    stack.undo()
+    expect(stack.current()[0]).toMatchObject({ startMs: 1000, endMs: 2000 })
+
+    stack.redo()
+    expect(stack.current()[0]).toMatchObject({ startMs: 1300, endMs: 2300 })
+  })
+
+  it('resizes start but never passes end', () => {
+    const stack = new CommandStack(cues)
+    stack.execute(resizeCueStart(1, 1900))
+    expect(stack.current()[0]).toMatchObject({ startMs: 1900, endMs: 2000 })
+
+    stack.execute(resizeCueStart(1, 2200))
+    expect(stack.current()[0]).toMatchObject({ startMs: 1999, endMs: 2000 })
+  })
+
+  it('resizes end but never goes before start', () => {
+    const stack = new CommandStack(cues)
+    stack.execute(resizeCueEnd(1, 1500))
+    expect(stack.current()[0]).toMatchObject({ startMs: 1000, endMs: 1500 })
+
+    stack.execute(resizeCueEnd(1, 900))
+    expect(stack.current()[0]).toMatchObject({ startMs: 1000, endMs: 1001 })
+  })
+})

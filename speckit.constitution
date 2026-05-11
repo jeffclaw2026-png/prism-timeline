@@ -1,0 +1,10 @@
+# Project Constitution
+
+## Core Principles
+
+1) Timeline precision first: subtitle timing edits must preserve millisecond-level accuracy and never silently shift untouched cues.
+2) Non-destructive editing: all edits are reversible via undo/redo and original SRT can always be restored.
+3) Fast iterative workflow: keyboard-first editing and smooth timeline interactions for video-editor-like speed.
+4) Interoperable I/O: strict SRT parsing with robust handling of malformed files; export must remain standards-compliant.
+5) Cross-platform accessibility: primary UX must run in modern browsers; optional desktop packaging should not fork core logic.
+6) Observable quality: include test coverage for parser, timing math, and export round-trip integrity.
