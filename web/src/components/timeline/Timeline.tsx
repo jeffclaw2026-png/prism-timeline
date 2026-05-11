@@ -15,6 +15,7 @@ type Props = {
   onResizeStart: (index: number, nextStartMs: number) => void
   onResizeEnd: (index: number, nextEndMs: number) => void
   onSeek: (ms: number) => void
+  onZoom: (delta: number) => void
 }
 
 const PX_PER_SEC_BASE = 80
@@ -53,6 +54,7 @@ export function Timeline({
   onResizeStart,
   onResizeEnd,
   onSeek,
+  onZoom,
 }: Props) {
   const pxPerMs = (PX_PER_SEC_BASE * zoom) / 1000
   const widthPx = Math.max(800, durationMs * pxPerMs)
@@ -141,7 +143,15 @@ export function Timeline({
   const playheadX = currentMs * pxPerMs
 
   return (
-    <div style={{ overflowX: 'auto', border: '1px solid #ddd', borderRadius: 8, padding: 0 }}>
+    <div
+      style={{ overflowX: 'auto', border: '1px solid #ddd', borderRadius: 8, padding: 0 }}
+      onWheel={(e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault()
+          onZoom(e.deltaY < 0 ? 0.1 : -0.1)
+        }
+      }}
+    >
       <div
         data-timeline
         style={{ width: widthPx, height: totalHeight, position: 'relative', background: '#0f172a', cursor: 'crosshair' }}

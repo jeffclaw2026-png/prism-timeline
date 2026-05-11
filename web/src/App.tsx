@@ -167,6 +167,18 @@ function App() {
         return
       }
 
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        setZoom((z) => Math.min(4, z + 0.2))
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault()
+        setZoom((z) => Math.max(0.5, z - 0.2))
+        return
+      }
+
       if (!selectedCueIndex) return
 
       // Ripple move with Alt key
@@ -361,6 +373,7 @@ function App() {
               setCurrentMs(ms)
               if (videoRef.current) videoRef.current.currentTime = ms / 1000
             }}
+            onZoom={(delta) => setZoom((z) => Math.max(0.5, Math.min(4, z + delta)))}
           />
 
           {selectedCueIndex && (

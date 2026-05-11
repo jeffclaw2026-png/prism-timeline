@@ -39,6 +39,8 @@ Open the app, load a video + SRT, and start editing.
 | Ctrl+Shift+Z | Redo |
 | Ctrl+S | Save to localStorage |
 | Ctrl+E | Export SRT file |
+| Ctrl+= / Ctrl+- | Zoom in / out |
+| Ctrl+scroll | Zoom on timeline |
 
 ## Tech Stack
 
