@@ -81,6 +81,19 @@ export function rippleMoveCues(fromIndex: number, deltaMs: number): CueCommand {
   }
 }
 
+export function insertCue(startMs: number, endMs: number): CueCommand {
+  return {
+    apply: (cues) => {
+      const newIndex = Math.max(...cues.map((c) => c.index), 0) + 1
+      const newCue: Cue = { index: newIndex, startMs, endMs, text: '' }
+      // Insert in sorted position by startMs
+      const idx = cues.findIndex((c) => c.startMs > startMs)
+      if (idx === -1) return [...cues, newCue]
+      return [...cues.slice(0, idx), newCue, ...cues.slice(idx)]
+    },
+  }
+}
+
 export class CommandStack {
   private history: Cue[][]
   private cursor: number

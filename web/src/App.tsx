@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { parseSrt, serializeSrt, type Cue } from './domain/srt/srt'
-import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart, deleteCue, splitCue, editCueText, rippleMoveCues } from './domain/timing/commands'
+import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart, deleteCue, splitCue, editCueText, rippleMoveCues, insertCue } from './domain/timing/commands'
 import { findOverlappingCueIndices } from './domain/timing/overlap'
 import { Timeline } from './components/timeline/Timeline'
 
@@ -118,10 +118,23 @@ function App() {
     syncFromStack()
   }
 
+  const runInsert = () => {
+    if (!stackRef.current) return
+    const DEFAULT_DURATION = 2000 // 2 seconds
+    stackRef.current.execute(insertCue(currentMs, currentMs + DEFAULT_DURATION))
+    syncFromStack()
+  }
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const targetTag = (e.target as HTMLElement | null)?.tagName
       if (targetTag === 'INPUT' || targetTag === 'TEXTAREA') return
+
+      if (e.code === 'Enter') {
+        e.preventDefault()
+        runInsert()
+        return
+      }
 
       if (e.code === 'Space') {
         e.preventDefault()
