@@ -274,30 +274,27 @@ function App() {
                 color: 'white',
                 textShadow: '0 2px 8px rgba(0,0,0,0.9)',
                 padding: '0 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 2,
               }}
             >
               {activeCues.length > 0 ? (
                 activeCues.map((cue, i) => {
-                  const size = Math.max(12, 20 - i * 3)
-                  const opacity = 1 - i * 0.15
+                  const bottomOffset = (activeCues.length - 1 - i) * 28
                   return (
                     <div
                       key={cue.index}
                       style={{
-                        fontSize: size,
-                        opacity,
+                        position: 'absolute',
+                        bottom: 12 + bottomOffset,
+                        left: 0,
+                        right: 0,
+                        textAlign: 'center',
+                        fontSize: 20,
+                        color: 'white',
+                        textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+                        padding: '0 12px',
                         lineHeight: 1.3,
-                        background: i > 0 ? 'rgba(0,0,0,0.5)' : undefined,
-                        padding: i > 0 ? '1px 8px' : undefined,
-                        borderRadius: 4,
-                        maxWidth: '100%',
                       }}
                     >
-                      {activeCues.length > 1 && <span style={{ fontSize: 10, opacity: 0.6 }}>#{cue.index} </span>}
                       {cue.text}
                     </div>
                   )
