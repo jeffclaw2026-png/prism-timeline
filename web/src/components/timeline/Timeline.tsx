@@ -11,6 +11,7 @@ type Props = {
   overlapCueIndices: Set<number>
   onSelectCue: (index: number) => void
   onMoveCue: (index: number, deltaMs: number) => void
+  onRippleMove: (fromIndex: number, deltaMs: number) => void
   onResizeStart: (index: number, nextStartMs: number) => void
   onResizeEnd: (index: number, nextEndMs: number) => void
   onSeek: (ms: number) => void
@@ -30,7 +31,6 @@ function formatRulerTime(ms: number): string {
 }
 
 function calcTickInterval(pxPerMs: number): number {
-  // Pick a nice ms interval so ticks are ~60-120px apart
   const targetPx = 80
   const idealMs = targetPx / pxPerMs
   const candidates = [500, 1000, 2000, 5000, 10000, 30000, 60000]
@@ -49,6 +49,7 @@ export function Timeline({
   overlapCueIndices,
   onSelectCue,
   onMoveCue,
+  onRippleMove,
   onResizeStart,
   onResizeEnd,
   onSeek,
@@ -63,6 +64,7 @@ export function Timeline({
     startClientX: number
     origStartMs: number
     origEndMs: number
+    altKey: boolean
   } | null>(null)
 
   const beginDrag = (
@@ -80,6 +82,7 @@ export function Timeline({
       startClientX: e.clientX,
       origStartMs: cue.startMs,
       origEndMs: cue.endMs,
+      altKey: e.altKey,
     }
 
     const onMove = (ev: PointerEvent) => {
@@ -93,8 +96,13 @@ export function Timeline({
         .flatMap((c) => [c.startMs, c.endMs])
 
       if (d.mode === 'move') {
-        const targetStart = applySnapping(d.origStartMs + deltaMs, edgeCandidates)
-        onMoveCue(d.cueIndex, targetStart - thisCue.startMs)
+        if (d.altKey) {
+          // Ripple: shift all cues from this index onward
+          onRippleMove(d.cueIndex, deltaMs)
+        } else {
+          const targetStart = applySnapping(d.origStartMs + deltaMs, edgeCandidates)
+          onMoveCue(d.cueIndex, targetStart - thisCue.startMs)
+        }
       } else if (d.mode === 'resize-start') {
         const targetStart = applySnapping(d.origStartMs + deltaMs, edgeCandidates)
         onResizeStart(d.cueIndex, targetStart)
@@ -188,6 +196,7 @@ export function Timeline({
                 onPointerDown={(e) => beginDrag(e, cue, 'resize-start')}
               />
               <div
+                title={cue.text}
                 style={{ flex: 1, padding: '4px 6px', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'grab' }}
                 onPointerDown={(e) => beginDrag(e, cue, 'move')}
               >

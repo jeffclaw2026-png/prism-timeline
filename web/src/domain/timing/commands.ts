@@ -63,6 +63,24 @@ export function splitCue(cueIndex: number, splitMs: number): CueCommand {
   }
 }
 
+export function editCueText(cueIndex: number, text: string): CueCommand {
+  return {
+    apply: (cues) => mapCue(cues, cueIndex, (cue) => ({ ...cue, text })),
+  }
+}
+
+export function rippleMoveCues(fromIndex: number, deltaMs: number): CueCommand {
+  return {
+    apply: (cues) =>
+      cues.map((cue) => {
+        if (cue.index < fromIndex) return cue
+        const startMs = Math.max(0, cue.startMs + deltaMs)
+        const dur = cue.endMs - cue.startMs
+        return { ...cue, startMs, endMs: startMs + dur }
+      }),
+  }
+}
+
 export class CommandStack {
   private history: Cue[][]
   private cursor: number

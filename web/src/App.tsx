@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { parseSrt, serializeSrt, type Cue } from './domain/srt/srt'
-import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart, deleteCue, splitCue } from './domain/timing/commands'
+import { CommandStack, moveCueBy, resizeCueEnd, resizeCueStart, deleteCue, splitCue, editCueText, rippleMoveCues } from './domain/timing/commands'
 import { findOverlappingCueIndices } from './domain/timing/overlap'
 import { Timeline } from './components/timeline/Timeline'
 
@@ -14,6 +14,7 @@ function App() {
   const [zoom, setZoom] = useState(1)
   const [selectedCueIndex, setSelectedCueIndex] = useState<number | null>(null)
   const [exportText, setExportText] = useState('')
+  const [editingText, setEditingText] = useState('')
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const stackRef = useRef<CommandStack | null>(null)
 
@@ -62,6 +63,12 @@ function App() {
     }
   }, [cues])
 
+  // Sync editing text when selected cue changes
+  useEffect(() => {
+    const cue = cues.find((c) => c.index === selectedCueIndex)
+    setEditingText(cue?.text ?? '')
+  }, [selectedCueIndex, cues])
+
   const runMoveCue = (index: number, deltaMs: number) => {
     if (!stackRef.current) return
     stackRef.current.execute(moveCueBy(index, deltaMs))
@@ -90,6 +97,18 @@ function App() {
   const runSplit = (index: number) => {
     if (!stackRef.current) return
     stackRef.current.execute(splitCue(index, currentMs))
+    syncFromStack()
+  }
+
+  const runEditText = (index: number, text: string) => {
+    if (!stackRef.current) return
+    stackRef.current.execute(editCueText(index, text))
+    syncFromStack()
+  }
+
+  const runRippleMove = (fromIndex: number, deltaMs: number) => {
+    if (!stackRef.current) return
+    stackRef.current.execute(rippleMoveCues(fromIndex, deltaMs))
     syncFromStack()
   }
 
@@ -122,6 +141,21 @@ function App() {
       }
 
       if (!selectedCueIndex) return
+
+      // Ripple move with Alt key
+      if (e.altKey) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault()
+          runRippleMove(selectedCueIndex, e.shiftKey ? -500 : -100)
+          return
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault()
+          runRippleMove(selectedCueIndex, e.shiftKey ? 500 : 100)
+          return
+        }
+      }
+
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
         runMoveCue(selectedCueIndex, e.shiftKey ? -500 : -100)
@@ -142,7 +176,7 @@ function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedCueIndex, cues])
+  }, [selectedCueIndex, cues, currentMs])
 
   const downloadSrt = () => {
     const content = serializeSrt({ cues })
@@ -239,6 +273,9 @@ function App() {
               />
               {zoom.toFixed(1)}x
             </label>
+            <span style={{ marginLeft: 16, color: '#888', fontSize: 12 }}>
+              Alt+drag/Alt+←→ = ripple
+            </span>
           </div>
 
           <Timeline
@@ -250,6 +287,7 @@ function App() {
             overlapCueIndices={overlapCueIndices}
             onSelectCue={setSelectedCueIndex}
             onMoveCue={runMoveCue}
+            onRippleMove={runRippleMove}
             onResizeStart={runResizeStart}
             onResizeEnd={runResizeEnd}
             onSeek={(ms) => {
@@ -259,9 +297,11 @@ function App() {
           />
 
           {selectedCueIndex && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-              <button onClick={() => runMoveCue(selectedCueIndex, -100)}>Nudge -100ms</button>
-              <button onClick={() => runMoveCue(selectedCueIndex, 100)}>Nudge +100ms</button>
+            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => runMoveCue(selectedCueIndex, -100)}>←100ms</button>
+              <button onClick={() => runMoveCue(selectedCueIndex, 100)}>100ms→</button>
+              <button onClick={() => runRippleMove(selectedCueIndex, -100)}>⟪←100ms ripple</button>
+              <button onClick={() => runRippleMove(selectedCueIndex, 100)}>⟫100ms ripple→</button>
             </div>
           )}
         </div>
@@ -269,29 +309,64 @@ function App() {
         <div>
           <h3>Cues ({cues.length}) {overlapCueIndices.size > 0 ? `• ${overlapCueIndices.size} overlap` : ''}</h3>
           <div style={{ maxHeight: 340, overflow: 'auto', border: '1px solid #ddd', borderRadius: 8 }}>
-            {cues.map((cue) => (
-              <div
-                key={cue.index}
-                onClick={() => setSelectedCueIndex(cue.index)}
-                style={{
-                  padding: 8,
-                  borderBottom: '1px solid #eee',
-                  textAlign: 'left',
-                  background:
-                    cue.index === selectedCueIndex
+            {cues.map((cue) => {
+              const isSelected = cue.index === selectedCueIndex
+              return (
+                <div
+                  key={cue.index}
+                  onClick={() => setSelectedCueIndex(cue.index)}
+                  style={{
+                    padding: 8,
+                    borderBottom: '1px solid #eee',
+                    textAlign: 'left',
+                    background: isSelected
                       ? '#fff7ed'
                       : overlapCueIndices.has(cue.index)
                         ? '#fee2e2'
                         : undefined,
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  #{cue.index} {cue.startMs} → {cue.endMs}
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>
+                    #{cue.index} {cue.startMs} → {cue.endMs}
+                  </div>
+                  {isSelected ? (
+                    <textarea
+                      value={editingText}
+                      onChange={(e) => {
+                        setEditingText(e.target.value)
+                      }}
+                      onBlur={() => {
+                        if (editingText !== (cues.find((c) => c.index === cue.index)?.text ?? '')) {
+                          runEditText(cue.index, editingText)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          (e.target as HTMLTextAreaElement).blur()
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      rows={2}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box' as const,
+                        font: 'inherit',
+                        fontSize: 13,
+                        padding: 4,
+                        borderRadius: 4,
+                        border: '1px solid #fbbf24',
+                        background: '#fff',
+                        resize: 'vertical' as const,
+                      }}
+                    />
+                  ) : (
+                    <div style={{ fontSize: 13 }}>{cue.text}</div>
+                  )}
                 </div>
-                <div>{cue.text}</div>
-              </div>
-            ))}
+              )
+            })}
             {cues.length === 0 && <div style={{ padding: 8, color: '#666' }}>No cues loaded</div>}
           </div>
         </div>
