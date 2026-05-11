@@ -155,6 +155,14 @@ function App() {
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault()
+        // Save to localStorage only
+        const content = serializeSrt({ cues })
+        try { localStorage.setItem('prism-autosave', content) } catch { /* quota exceeded */ }
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+        e.preventDefault()
         downloadSrt()
         return
       }

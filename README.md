@@ -32,11 +32,13 @@ Open the app, load a video + SRT, and start editing.
 | Alt+← → | Ripple ±100ms |
 | Alt+Shift+← → | Ripple ±500ms |
 | Alt+drag | Ripple drag on timeline |
+| Enter | Insert new cue at playhead |
 | Delete / Backspace | Delete selected cue |
 | S | Split cue at playhead |
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z | Redo |
-| Ctrl+S | Export SRT |
+| Ctrl+S | Save to localStorage |
+| Ctrl+E | Export SRT file |
 
 ## Tech Stack
 
