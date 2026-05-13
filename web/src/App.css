@@ -96,14 +96,38 @@ body {
 }
 
 @media (max-width: 768px) {
+  .prism-shell {
+    padding: 10px;
+  }
+
   .prism-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 10px;
+  }
+
+  .prism-title {
+    font-size: 1rem;
   }
 
   .prism-toolbar {
     width: 100%;
     justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .prism-file-label {
+    width: 100%;
+  }
+
+  .prism-file-input {
+    max-width: none;
+    width: 100%;
+  }
+
+  .prism-toolbar > .prism-btn {
+    flex: 1 1 calc(33.333% - 6px);
+    min-width: 0;
   }
 }
 
@@ -316,6 +340,27 @@ body {
   flex-wrap: wrap;
 }
 
+@media (max-width: 768px) {
+  .prism-playhead-bar {
+    gap: 8px;
+    align-items: center;
+  }
+
+  .prism-playhead-time {
+    width: 100%;
+  }
+
+  .prism-zoom-label {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .prism-zoom-slider {
+    flex: 1;
+    max-width: 220px;
+  }
+}
+
 .prism-playhead-time {
   font-family: var(--prism-font-mono);
   color: var(--prism-accent);
@@ -364,6 +409,21 @@ body {
   gap: var(--prism-space-xs);
   margin-top: var(--prism-space-sm);
   flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .prism-cue-toolbar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background: var(--prism-bg-secondary);
+    padding: 8px 0 10px;
+    border-top: 1px solid var(--prism-border);
+  }
+
+  .prism-cue-toolbar .prism-btn {
+    flex: 1 1 calc(50% - 4px);
+  }
 }
 
 /* ─── Cue List ─── */
