@@ -46,6 +46,22 @@ function calcTickInterval(pxPerMs: number): number {
   return 60000
 }
 
+// CSS custom property references for colors (avoid hardcoded hex in JS)
+const C = {
+  rulerLine: 'var(--prism-text-secondary)',
+  rulerText: 'var(--prism-text-secondary)',
+  laneGuide: 'rgba(136, 150, 168, 0.25)',
+  laneLabel: 'var(--prism-text-secondary)',
+  blockBg: 'var(--prism-bg-elevated, #1a202e)',
+  blockBorder: 'var(--prism-border, #252d3a)',
+  blockText: 'var(--prism-text-primary, #e4e8ee)',
+  blockResizeHandle: 'var(--prism-text-secondary)',
+  blockSelectedBorder: 'var(--prism-accent, #6366f1)',
+  blockOverlapBg: 'var(--prism-danger-subtle, #291a1e)',
+  blockOverlapBorder: 'var(--prism-danger, #ef4444)',
+  playheadColor: 'var(--prism-playhead, #ef4444)',
+}
+
 export function Timeline({
   cues,
   durationMs,
@@ -222,10 +238,16 @@ export function Timeline({
     container.scrollTo({ left: nextLeft, behavior: 'smooth' })
   }, [playheadX])
 
+  // Compute lane label color based on hover/drag state
+  const getLaneLabelColor = (lane: 1 | 2) => {
+    if (!dragPreview) return 'var(--prism-text-secondary)'
+    return dragPreview.lane === lane ? 'var(--prism-accent)' : 'var(--prism-text-secondary)'
+  }
+
   return (
     <div
       ref={scrollRef}
-      style={{ overflowX: 'auto', border: '1px solid #ddd', borderRadius: 8, padding: 0 }}
+      className="prism-timeline-track"
       onScroll={() => {
         lastManualScrollAtRef.current = Date.now()
       }}
@@ -239,15 +261,16 @@ export function Timeline({
     >
       <div
         data-timeline
-        style={{ width: widthPx, height: totalHeight, position: 'relative', background: '#0f172a', cursor: 'crosshair' }}
+        className="prism-timeline-canvas"
+        style={{ width: widthPx, height: totalHeight }}
         onDoubleClick={handleTimelineDoubleClick}
       >
         {/* Time ruler */}
         <svg style={{ position: 'absolute', top: 0, left: 0, width: widthPx, height: RULER_HEIGHT, pointerEvents: 'none' }}>
           {ticks.map(({ ms, label }) => (
             <g key={ms}>
-              <line x1={ms * pxPerMs} y1={RULER_HEIGHT - 8} x2={ms * pxPerMs} y2={RULER_HEIGHT} stroke="#64748b" strokeWidth={1} />
-              <text x={ms * pxPerMs + 4} y={RULER_HEIGHT - 10} fill="#94a3b8" fontSize={10} fontFamily="monospace">
+              <line x1={ms * pxPerMs} y1={RULER_HEIGHT - 8} x2={ms * pxPerMs} y2={RULER_HEIGHT} stroke={C.rulerLine} strokeWidth={1} />
+              <text x={ms * pxPerMs + 4} y={RULER_HEIGHT - 10} fill={C.rulerText} fontSize={10} fontFamily="monospace">
                 {label}
               </text>
             </g>
@@ -277,6 +300,13 @@ export function Timeline({
           const isOverlap = overlapCueIndices.has(cue.index)
           const top = lane === 2 ? BLOCK_TOP_LANE_2 : BLOCK_TOP_LANE_1
 
+          // Build dynamic border color
+          let blockBorderColor = C.blockBorder
+          if (isSelected) blockBorderColor = C.blockSelectedBorder
+          else if (isOverlap) blockBorderColor = C.blockOverlapBorder
+
+          const blockBgColor = isOverlap ? C.blockOverlapBg : C.blockBg
+
           return (
             <div
               key={cue.index}
@@ -292,13 +322,9 @@ export function Timeline({
                 top,
                 height: 50,
                 borderRadius: 6,
-                border: isSelected
-                  ? '2px solid #fbbf24'
-                  : isOverlap
-                    ? '1px solid #ef4444'
-                    : '1px solid #64748b',
-                background: isOverlap ? '#7f1d1d' : '#334155',
-                color: '#f8fafc',
+                border: isSelected ? `2px solid ${C.blockSelectedBorder}` : `1px solid ${blockBorderColor}`,
+                background: blockBgColor,
+                color: C.blockText,
                 fontSize: 12,
                 userSelect: 'none',
                 display: 'flex',
@@ -307,7 +333,7 @@ export function Timeline({
             >
               <div
                 title="Resize start"
-                style={{ width: 8, cursor: 'ew-resize', background: '#94a3b8', borderRadius: '6px 0 0 6px' }}
+                style={{ width: 8, cursor: 'ew-resize', background: C.blockResizeHandle, borderRadius: '6px 0 0 6px' }}
                 onPointerDown={(e) => beginDrag(e, cue, 'resize-start')}
               />
               <div
@@ -319,7 +345,7 @@ export function Timeline({
               </div>
               <div
                 title="Resize end"
-                style={{ width: 8, cursor: 'ew-resize', background: '#94a3b8', borderRadius: '0 6px 6px 0' }}
+                style={{ width: 8, cursor: 'ew-resize', background: C.blockResizeHandle, borderRadius: '0 6px 6px 0' }}
                 onPointerDown={(e) => beginDrag(e, cue, 'resize-end')}
               />
             </div>
@@ -334,7 +360,7 @@ export function Timeline({
             left: 0,
             width: widthPx,
             height: 1,
-            background: 'rgba(148, 163, 184, 0.35)',
+            background: C.laneGuide,
             pointerEvents: 'none',
           }}
         />
@@ -345,14 +371,14 @@ export function Timeline({
             left: 0,
             width: widthPx,
             height: 1,
-            background: 'rgba(148, 163, 184, 0.35)',
+            background: C.laneGuide,
             pointerEvents: 'none',
           }}
         />
-        <div style={{ position: 'absolute', top: BLOCK_TOP_LANE_1 + 2, left: 6, color: '#94a3b8', fontSize: 10, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', top: BLOCK_TOP_LANE_1 + 2, left: 6, color: getLaneLabelColor(1), fontSize: 10, pointerEvents: 'none' }}>
           Channel 1
         </div>
-        <div style={{ position: 'absolute', top: BLOCK_TOP_LANE_2 + 2, left: 6, color: '#94a3b8', fontSize: 10, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', top: BLOCK_TOP_LANE_2 + 2, left: 6, color: getLaneLabelColor(2), fontSize: 10, pointerEvents: 'none' }}>
           Channel 2
         </div>
 
@@ -364,7 +390,7 @@ export function Timeline({
             left: playheadX,
             width: 2,
             height: totalHeight,
-            background: '#ef4444',
+            background: C.playheadColor,
             pointerEvents: 'none',
             zIndex: 10,
           }}

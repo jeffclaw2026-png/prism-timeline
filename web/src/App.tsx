@@ -287,61 +287,55 @@ function App() {
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
-      <h1>Prism Timeline Editor</h1>
-
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          Video:
-          <input
-            type="file"
-            accept="video/*"
-            onChange={(e) => onVideoFile(e.target.files?.[0] ?? null)}
-            style={{ width: 340, maxWidth: '100%', minWidth: 0 }}
-          />
-        </label>
-
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          SRT:
-          <input
-            type="file"
-            accept=".srt,text/plain"
-            onChange={(e) => onSrtFile(e.target.files?.[0] ?? null)}
-            style={{ width: 340, maxWidth: '100%', minWidth: 0 }}
-          />
-        </label>
-
-        <button
-          onClick={() => {
-            stackRef.current?.undo()
-            syncFromStack()
-          }}
-        >
-          Undo
-        </button>
-        <button
-          onClick={() => {
-            stackRef.current?.redo()
-            syncFromStack()
-          }}
-        >
-          Redo
-        </button>
-
-        <button onClick={downloadSrt}>Export SRT (.srt file)</button>
+    <div className="prism-shell">
+      {/* Header */}
+      <div className="prism-header">
+        <h1 className="prism-title">Prism Timeline Editor</h1>
+        <div className="prism-toolbar">
+          <label className="prism-file-label">
+            <span>Video</span>
+            <input
+              type="file"
+              accept="video/*"
+              className="prism-file-input"
+              onChange={(e) => onVideoFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          <label className="prism-file-label">
+            <span>SRT</span>
+            <input
+              type="file"
+              accept=".srt,text/plain"
+              className="prism-file-input"
+              onChange={(e) => onSrtFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          <button className="prism-btn prism-btn-secondary" onClick={() => { stackRef.current?.undo(); syncFromStack() }}>
+            Undo
+          </button>
+          <button className="prism-btn prism-btn-secondary" onClick={() => { stackRef.current?.redo(); syncFromStack() }}>
+            Redo
+          </button>
+          <button className="prism-btn prism-btn-primary" onClick={downloadSrt}>
+            Export SRT
+          </button>
+        </div>
       </div>
 
-      {error && <p style={{ color: 'crimson' }}>SRT parse error: {error}</p>}
+      {error && <p className="prism-error">SRT parse error: {error}</p>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', gap: 16 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ position: 'relative', background: '#111', borderRadius: 8, overflow: 'hidden' }}>
+      {/* Main Layout */}
+      <div className="prism-main-grid">
+        {/* Left: Video + Timeline */}
+        <div>
+          {/* Video Player */}
+          <div className="prism-video-container">
             {videoUrl ? (
               <video
                 ref={videoRef}
                 controls
                 src={videoUrl}
-                style={{ width: '100%', display: 'block' }}
+                className="prism-video"
                 onTimeUpdate={(e) => {
                   const ms = e.currentTarget.currentTime * 1000
                   setCurrentMs(ms)
@@ -353,53 +347,27 @@ function App() {
                 }}
               />
             ) : (
-              <div style={{ height: 320, display: 'grid', placeItems: 'center', color: '#aaa' }}>Load a video to start</div>
+              <div className="prism-video-placeholder">Load a video to start</div>
             )}
 
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                bottom: 12,
-                textAlign: 'center',
-                color: 'white',
-                textShadow: '0 2px 8px rgba(0,0,0,0.9)',
-                padding: '0 12px',
-              }}
-            >
+            {/* Subtitle overlay */}
+            <div className="prism-subtitle-overlay">
               {activeCues.length > 0 ? (
-                activeCues.map((cue, i) => {
-                  const bottomOffset = (activeCues.length - 1 - i) * 28
-                  return (
-                    <div
-                      key={cue.index}
-                      style={{
-                        position: 'absolute',
-                        bottom: 12 + bottomOffset,
-                        left: 0,
-                        right: 0,
-                        textAlign: 'center',
-                        fontSize: 20,
-                        color: 'white',
-                        textShadow: '0 2px 8px rgba(0,0,0,0.9)',
-                        padding: '0 12px',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {cue.text}
-                    </div>
-                  )
-                })
+                activeCues.map((cue) => (
+                  <div key={cue.index} className="prism-subtitle-line">
+                    {cue.text}
+                  </div>
+                ))
               ) : (
-                <span style={{ fontSize: 20 }}>{activeCue?.text ?? ''}</span>
+                <span className="prism-subtitle-line">{activeCue?.text ?? ''}</span>
               )}
             </div>
           </div>
 
-          <div style={{ marginTop: 12, marginBottom: 8 }}>
-            <strong>Playhead:</strong> {Math.floor(currentMs)} ms
-            <label style={{ marginLeft: 16 }}>
+          {/* Playhead info bar */}
+          <div className="prism-playhead-bar">
+            <span className="prism-playhead-time">{formatTimecode(currentMs)}</span>
+            <label className="prism-zoom-label">
               Zoom
               <input
                 type="range"
@@ -407,15 +375,17 @@ function App() {
                 max={4}
                 step={0.1}
                 value={zoom}
+                className="prism-zoom-slider"
                 onChange={(e) => setZoom(Number(e.target.value))}
               />
-              {zoom.toFixed(1)}x
+              <span className="prism-zoom-value">{zoom.toFixed(1)}×</span>
             </label>
-            <span style={{ marginLeft: 16, color: '#888', fontSize: 12 }}>
-              Double-click timeline = seek, Shift+wheel = timeline zoom, Alt+drag/Alt+←→ = ripple
+            <span className="prism-hint">
+              Double-click timeline = seek · Shift+wheel = timeline zoom · Alt+drag/Alt+←→ = ripple
             </span>
           </div>
 
+          {/* Timeline */}
           <Timeline
             cues={cues}
             durationMs={durationMs}
@@ -436,67 +406,81 @@ function App() {
             onZoom={(delta) => setZoom((z) => Math.max(0.5, Math.min(4, z + delta)))}
           />
 
+          {/* Cue actions toolbar */}
           {selectedCueIndex && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="prism-cue-toolbar">
               <button
+                className="prism-btn prism-btn-success"
                 onClick={() => {
                   const cue = cues.find((c) => c.index === selectedCueIndex)
                   if (cue) playSelection(cue)
                 }}
-                style={{ fontWeight: 'bold', background: '#16a34a', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: 4, cursor: 'pointer' }}
               >
-                ▶ Play selection
+                ▶ Play
               </button>
-              <button onClick={() => runMoveCue(selectedCueIndex, -100)}>←100ms</button>
-              <button onClick={() => runMoveCue(selectedCueIndex, 100)}>100ms→</button>
-              <button onClick={() => runMoveLane(selectedCueIndex, 1)}>Move to Ch1 (↑)</button>
-              <button onClick={() => runMoveLane(selectedCueIndex, 2)}>Move to Ch2 (↓)</button>
-              <button onClick={() => runRippleMove(selectedCueIndex, -100)}>⟪←100ms ripple</button>
-              <button onClick={() => runRippleMove(selectedCueIndex, 100)}>⟫100ms ripple→</button>
+              <button className="prism-btn prism-btn-secondary prism-btn-sm" onClick={() => runMoveCue(selectedCueIndex, -100)}>
+                ← 100ms
+              </button>
+              <button className="prism-btn prism-btn-secondary prism-btn-sm" onClick={() => runMoveCue(selectedCueIndex, 100)}>
+                100ms →
+              </button>
+              <button className="prism-btn prism-btn-secondary prism-btn-sm" onClick={() => runMoveLane(selectedCueIndex, 1)}>
+                Ch 1 ↑
+              </button>
+              <button className="prism-btn prism-btn-secondary prism-btn-sm" onClick={() => runMoveLane(selectedCueIndex, 2)}>
+                Ch 2 ↓
+              </button>
+              <button className="prism-btn prism-btn-secondary prism-btn-sm" onClick={() => runRippleMove(selectedCueIndex, -100)}>
+                ⟪ 100ms ripple
+              </button>
+              <button className="prism-btn prism-btn-secondary prism-btn-sm" onClick={() => runRippleMove(selectedCueIndex, 100)}>
+                100ms ripple ⟫
+              </button>
+              <button className="prism-btn prism-btn-danger prism-btn-sm" onClick={() => runDelete(selectedCueIndex)}>
+                Delete
+              </button>
             </div>
           )}
         </div>
 
-        <div style={{ minWidth: 0 }}>
-          <h3>Cues ({cues.length}) {overlapCueIndices.size > 0 ? `• ${overlapCueIndices.size} overlap` : ''}</h3>
-          <div
-            ref={cueListRef}
-            style={{ maxHeight: 340, overflow: 'auto', border: '1px solid #ddd', borderRadius: 8 }}
-          >
+        {/* Right: Cue List */}
+        <div className="prism-panel">
+          <div className="prism-panel-header">
+            <span>Cues ({cues.length})</span>
+            {overlapCueIndices.size > 0 && (
+              <span style={{ color: 'var(--prism-warning)' }}>{overlapCueIndices.size} overlapping</span>
+            )}
+          </div>
+          <div ref={cueListRef} className="prism-cue-list">
             {cues.map((cue) => {
               const isSelected = cue.index === selectedCueIndex
+              const isOverlap = overlapCueIndices.has(cue.index)
+
+              const itemClass = [
+                'prism-cue-item',
+                isSelected && 'prism-cue-item--selected',
+                isOverlap && !isSelected && 'prism-cue-item--overlap',
+              ].filter(Boolean).join(' ')
+
               return (
                 <div
                   key={cue.index}
-                  ref={(el) => {
-                    cueItemRefs.current[cue.index] = el
-                  }}
+                  ref={(el) => { cueItemRefs.current[cue.index] = el }}
+                  className={itemClass}
                   onClick={() => {
                     setSelectedCueIndex(cue.index)
                     setCurrentMs(cue.startMs)
                     if (videoRef.current) videoRef.current.currentTime = cue.startMs / 1000
                   }}
-                  style={{
-                    padding: 8,
-                    borderBottom: '1px solid #eee',
-                    textAlign: 'left',
-                    background: isSelected
-                      ? '#fff7ed'
-                      : overlapCueIndices.has(cue.index)
-                        ? '#fee2e2'
-                        : undefined,
-                    cursor: 'pointer',
-                  }}
                 >
-                  <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>
-                    Ch{cue.lane ?? 1} • #{cue.index} {formatTimecode(cue.startMs)} → {formatTimecode(cue.endMs)}
+                  <div className="prism-cue-meta">
+                    Ch{cue.lane ?? 1} · #{cue.index} · {formatTimecode(cue.startMs)} → {formatTimecode(cue.endMs)}
                   </div>
                   {isSelected ? (
                     <textarea
                       value={editingText}
-                      onChange={(e) => {
-                        setEditingText(e.target.value)
-                      }}
+                      className="prism-cue-textarea"
+                      onChange={(e) => { setEditingText(e.target.value) }}
                       onBlur={() => {
                         if (editingText !== (cues.find((c) => c.index === cue.index)?.text ?? '')) {
                           runEditText(cue.index, editingText)
@@ -510,40 +494,27 @@ function App() {
                       }}
                       onClick={(e) => e.stopPropagation()}
                       rows={2}
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box' as const,
-                        font: 'inherit',
-                        fontSize: 13,
-                        color: '#0f172a',
-                        padding: 4,
-                        borderRadius: 4,
-                        border: '1px solid #fbbf24',
-                        background: '#ffffff',
-                        caretColor: '#0f172a',
-                        lineHeight: 1.35,
-                        resize: 'vertical' as const,
-                      }}
                     />
                   ) : (
-                    <div style={{ fontSize: 13, overflowWrap: 'anywhere' }}>{cue.text}</div>
+                    <div className="prism-cue-text">{cue.text}</div>
                   )}
                 </div>
               )
             })}
-            {cues.length === 0 && <div style={{ padding: 8, color: '#666' }}>No cues loaded</div>}
+            {cues.length === 0 && <div className="prism-cue-empty">No cues loaded</div>}
           </div>
         </div>
       </div>
 
-      <details style={{ marginTop: 16 }}>
+      {/* SRT source viewer */}
+      <details className="prism-details">
         <summary>Loaded SRT source</summary>
-        <pre style={{ whiteSpace: 'pre-wrap', textAlign: 'left' }}>{srtRaw}</pre>
+        <pre className="prism-code-block">{srtRaw}</pre>
       </details>
 
-      <details style={{ marginTop: 12 }} open={Boolean(exportText)}>
+      <details className="prism-details" open={Boolean(exportText)}>
         <summary>Exported SRT</summary>
-        <pre style={{ whiteSpace: 'pre-wrap', textAlign: 'left' }}>{exportText}</pre>
+        <pre className="prism-code-block">{exportText}</pre>
       </details>
     </div>
   )
