@@ -113,6 +113,10 @@ body {
   gap: var(--prism-space-lg);
 }
 
+.prism-main-grid > * {
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .prism-main-grid {
     grid-template-columns: 1fr;
@@ -494,6 +498,7 @@ body {
   overflow-x: auto;
   border: 1px solid var(--prism-border);
   border-radius: var(--prism-radius-lg);
+  max-width: 100%;
 }
 
 .prism-timeline-track::-webkit-scrollbar {
